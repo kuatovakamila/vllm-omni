@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 
 from dataclasses import dataclass
 
@@ -46,13 +46,16 @@ _MODEL_COEFFICIENTS = {
         7.61309272e-01,
     ],
     # Z-Image transformer coefficients
-    # Copied from Qwen-Image, need to be tuned specifically for Z-Image in future
+    # Calibrated with ZImageAdapter + TeaCacheCoefficientEstimator on Z-Image-Turbo:
+    # 70 Parti prompts x {25, 50} steps, 1024x1024, guidance_scale=4.0, 5,110 step
+    # pairs (R^2 0.69). The previous Qwen-Image placeholder predicted ~1/3 of the
+    # measured output change and over-skipped steps (see #8270).
     "ZImageTransformer2DModel": [
-        -4.50000000e02,
-        2.80000000e02,
-        -4.50000000e01,
-        3.20000000e00,
-        -2.00000000e-02,
+        -7.54613422e01,
+        -9.23596156e01,
+        5.75318402e01,
+        -3.76790311e00,
+        2.27176809e-01,
     ],
     # Estimated TeaCache polynomial coefficients for StableAudioDiTModel.
     "StableAudioDiTModel": [
