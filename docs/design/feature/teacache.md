@@ -260,7 +260,7 @@ The polynomial coefficients rescale L1 distances between consecutive modulated i
 
 | Approach | Performance | Effort |
 |----------|-------------|--------|
-| Using defaults from similar model | Within 5-10% of optimal | Low |
+| Using defaults from similar model | Unreliable: Z-Image with Qwen-Image's coefficients under-predicted output change ~3x and over-skipped steps (#8270); treat as a placeholder and calibrate | Low |
 | Estimating custom coefficients | Best performance | Medium |
 
 #### Implement Data Collection Adapter

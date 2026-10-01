@@ -190,5 +190,5 @@ cache_config={"rel_l1_thresh": 0.1}
 
 ## Summary
 
-1. ✅ **Enable TeaCache** - Set `cache_backend="tea_cache"` to get 1.5x-2.0x speedup with optimized defaults
+1. ✅ **Enable TeaCache** - Set `cache_backend="tea_cache"` to get up to 1.5x-2.0x speedup with optimized defaults on 50-step runs; few-step distilled models (e.g. Z-Image-Turbo at 25 steps) change too much per step to skip many, so expect ~1.1x there
 2. ✅ **(Optional) Customize** - Adjust thresholds and polynomial coefficients for specific speed/quality trade-offs

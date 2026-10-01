@@ -46,10 +46,17 @@ _MODEL_COEFFICIENTS = {
         7.61309272e-01,
     ],
     # Z-Image transformer coefficients
-    # Calibrated with ZImageAdapter + TeaCacheCoefficientEstimator on Z-Image-Turbo:
-    # 70 Parti prompts x {25, 50} steps, 1024x1024, guidance_scale=4.0, 5,110 step
-    # pairs (R^2 0.69). The previous Qwen-Image placeholder predicted ~1/3 of the
-    # measured output change and over-skipped steps (see #8270).
+    # Calibrated on Z-Image-Turbo with ZImageAdapter + the TeaCacheCoefficientEstimator
+    # hook path (per-step rel-L1 computed on the GPU instead of storing full CPU
+    # trajectories): 70 Parti prompts x {25, 50} steps, 1024x1024, guidance_scale=4.0,
+    # 5,110 step pairs, 4th-order fit (R^2 0.69). Measured input rel_l1 range
+    # 0.024-0.336 (mean 0.075); the quartic peaks near x~0.28 and drops to ~0 by
+    # x~0.40, so it is only valid inside that range. The previous Qwen-Image
+    # placeholder predicted ~1/3 of the measured output change and over-skipped
+    # steps (see #8270). With the default rel_l1_thresh=0.2 Z-Image-Turbo skips
+    # about half of its steps at 50 steps (~1.5x) and few at 25 steps (~1.1x),
+    # because the distilled model changes >20% per step early on; raising the
+    # threshold to 0.25-0.30 buys ~10% more speed for a visible quality drop.
     "ZImageTransformer2DModel": [
         -7.54613422e01,
         -9.23596156e01,
