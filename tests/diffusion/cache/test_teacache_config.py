@@ -19,8 +19,9 @@ pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 def test_zimage_has_calibrated_coefficients():
     """Z-Image must not fall back to the Qwen-Image placeholder polynomial (#8270)."""
     zimage = _MODEL_COEFFICIENTS["ZImageTransformer2DModel"]
-    assert len(zimage) == 5
     assert zimage != _MODEL_COEFFICIENTS["QwenImageTransformer2DModel"]
+    # Pin the calibrated fit so a recalibration has to update this test deliberately.
+    assert zimage == pytest.approx([-7.54613422e01, -9.23596156e01, 5.75318402e01, -3.76790311e00, 2.27176809e-01])
 
     config = TeaCacheConfig(transformer_type="ZImageTransformer2DModel")
     assert config.coefficients == zimage

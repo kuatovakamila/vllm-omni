@@ -50,8 +50,12 @@ _MODEL_COEFFICIENTS = {
     # hook path (per-step rel-L1 computed on the GPU instead of storing full CPU
     # trajectories): 70 Parti prompts x {25, 50} steps, 1024x1024, guidance_scale=4.0,
     # 5,110 step pairs, 4th-order fit (R^2 0.69). Measured input rel_l1 range
-    # 0.024-0.336 (mean 0.075); the quartic peaks near x~0.28 and drops to ~0 by
-    # x~0.40, so it is only valid inside that range. The previous Qwen-Image
+    # 0.024-0.336 (mean 0.075); the quartic peaks near x~0.28 and crosses zero
+    # near x~0.40, so it is only valid inside that range: the hook applies it
+    # unclamped, and a step with input distance ~0.40 would rescale to ~0 and be
+    # served from cache despite being a large step. Validated only on
+    # Z-Image-Turbo; other checkpoints that reach TeaCache through this class
+    # name inherit these values uncalibrated. The previous Qwen-Image
     # placeholder predicted ~1/3 of the measured output change and over-skipped
     # steps (see #8270). With the default rel_l1_thresh=0.2 Z-Image-Turbo skips
     # about half of its steps at 50 steps (~1.5x) and few at 25 steps (~1.1x),
@@ -83,7 +87,8 @@ _MODEL_COEFFICIENTS = {
         6.78098549e-01,
     ],
     # Flux2 transformer coefficients
-    # Copied from Qwen-Image, need to be tuned specifically for Flux2 in future
+    # Copied from Qwen-Image, still uncalibrated; tracked in #8411 together with
+    # the Flux2Klein borrow and the Ming subclasses of ZImageTransformer2DModel.
     "Flux2Transformer2DModel": [
         -4.50000000e02,
         2.80000000e02,
