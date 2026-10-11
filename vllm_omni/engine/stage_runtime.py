@@ -914,6 +914,14 @@ class StageRuntime:
                         stage_idx,
                         replica.replica_id,
                     )
+                    # Fail initialization instead of returning a partial set of
+                    # replicas, so the caller's cleanup path runs.
+                    with init_state_lock:
+                        if primary_exc is None:
+                            primary_exc = RuntimeError(
+                                f"Stage initialization was cancelled before stage-{stage_idx} "
+                                f"replica-{replica.replica_id} was launched"
+                            )
                     return
                 with init_state_lock:
                     if primary_exc is not None:

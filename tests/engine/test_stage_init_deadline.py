@@ -142,8 +142,11 @@ def test_cancel_initialization_skips_remaining_replicas(monkeypatch):
 
     monkeypatch.setattr(runtime, "_initialize_replica", _fake_initialize_replica)
 
-    clients = runtime._initialize_stage_replicas(plans, 60)
+    with pytest.raises(RuntimeError, match="cancelled") as exc_info:
+        runtime._initialize_stage_replicas(plans, 60)
 
     assert len(launched) == 1, "the second stage must not be launched after cancellation"
+    # Already-launched replicas are reported so initialize() can shut them down.
+    clients = exc_info.value._initialized_clients_by_stage
     assert clients[0] == ["client"]
     assert clients[1] == [None]

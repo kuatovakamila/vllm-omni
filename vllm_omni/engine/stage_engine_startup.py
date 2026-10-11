@@ -982,6 +982,7 @@ def _launch_omni_core_engines(
     stage_visible_devices: str | None = None,
     spawn_device_lock: threading.Lock | None = None,
     omni_parallel_stage_init: bool = False,
+    stage_init_timeout: int | None = None,
 ) -> Iterator[tuple[CoreEngineProcManager, DPCoordinator | None, EngineZmqAddresses]]:
     """Launch local engine cores using the omni registration flow.
 
@@ -1105,7 +1106,7 @@ def _launch_omni_core_engines(
                     )
 
             yield local_engine_manager, coordinator, addresses
-            wait_for_engine_startup(
+            wait_for_engine_startup_with_deadline(
                 handshake_socket,
                 engines_to_handshake,
                 parallel_config,
@@ -1117,6 +1118,9 @@ def _launch_omni_core_engines(
                     addresses=addresses,
                     tensor_queue=None,
                 ),
+                timeout=stage_init_timeout,
+                kill_processes=local_engine_manager.shutdown,
+                stage_label=f"LLM stage-{stage_id} replica-{replica_id}",
             )
     finally:
         omni_master_server.release_route_port_reservations(
@@ -1168,6 +1172,7 @@ def launch_stage_replica(
             stage_visible_devices=stage_visible_devices,
             spawn_device_lock=spawn_device_lock,
             omni_parallel_stage_init=omni_parallel_stage_init,
+            stage_init_timeout=stage_init_timeout,
         ) as resources:
             engine_manager, coordinator, addresses = resources
             yield StageReplicaResources(
