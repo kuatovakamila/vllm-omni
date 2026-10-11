@@ -87,6 +87,10 @@ def thinker2image(
     if isinstance(negative_prompt, str) and negative_prompt.strip():
         raise OmniClientError("Ming-Image uses zero negative conditioning and does not accept negative_prompt.")
 
+    num_layers = extra_args.get("num_layers", 1)
+    if isinstance(num_layers, bool) or not isinstance(num_layers, int) or num_layers < 1:
+        raise OmniClientError(f"num_layers must be a positive integer, got {num_layers!r}.")
+
     query_hidden, direct_hidden = _extract_conditions(source_outputs[0])
     extra: dict[str, Any] = {
         "query_hidden_states": query_hidden,
@@ -101,9 +105,6 @@ def thinker2image(
         if reference is not None:
             extra["reference_image"] = reference
 
-    num_layers = int(extra_args.get("num_layers", 1))
-    if num_layers < 1:
-        raise OmniClientError("num_layers must be at least 1.")
     extra["num_layers"] = num_layers
     return [{"prompt": "", "extra": extra}]
 
