@@ -77,6 +77,10 @@ def wait_for_engine_startup_with_deadline(
         raise
     finally:
         timer.cancel()
+        # cancel() does not stop a callback that already passed the timer's
+        # cancellation check. Wait for it, so that ``timed_out`` and the
+        # processes' state are final before the stage is handed back.
+        timer.join()
     if timed_out.is_set():
         # READY arrived in the same instant the deadline fired and the processes were
         # already terminated: do not hand back a stage whose engine is gone.

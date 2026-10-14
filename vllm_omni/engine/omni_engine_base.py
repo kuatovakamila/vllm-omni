@@ -1142,6 +1142,13 @@ class OmniEngineBase:
         if finalizer is not None and finalizer.alive:
             finalizer.detach()
 
+        cancel_initialization = getattr(getattr(self, "_runtime", None), "cancel_initialization", None)
+        if callable(cancel_initialization):
+            # The orchestrator thread may still be initializing stages. Cancel
+            # before waiting for it: a stage that becomes READY while we wait
+            # must not start launching the next one.
+            cancel_initialization()
+
         logger.info("[OmniEngine] Shutting down Orchestrator")
         request_queue_closed = False
         shutdown_enqueued = enqueue_orchestrator_shutdown(
@@ -1192,11 +1199,6 @@ class OmniEngineBase:
                 logger.exception("[OmniEngine] Failed to shutdown StageRuntime")
         elif hasattr(self, "_runtime") and self._runtime is not None:
             logger.warning("[OmniEngine] Deferring StageRuntime shutdown until the Orchestrator exits")
-            cancel_initialization = getattr(self._runtime, "cancel_initialization", None)
-            if callable(cancel_initialization):
-                # The orchestrator thread may still be initializing stages; make
-                # sure it launches no further replicas while we wait for it.
-                cancel_initialization()
             threading.Thread(
                 target=shutdown_runtime_after_orchestrator,
                 args=(self.orchestrator_thread, self._runtime),

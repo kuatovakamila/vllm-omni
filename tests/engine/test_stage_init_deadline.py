@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import threading
 import time
 import types
 
@@ -150,3 +151,106 @@ def test_cancel_initialization_skips_remaining_replicas(monkeypatch):
     clients = exc_info.value._initialized_clients_by_stage
     assert clients[0] == ["client"]
     assert clients[1] == [None]
+
+
+def test_ready_racing_deadline_waits_for_the_callback(monkeypatch):
+    """READY and the deadline fire together.
+
+    ``Timer.cancel()`` cannot stop a callback that already passed the timer's
+    cancellation check, so that callback may still terminate the stage after
+    the readiness wait returned. The function must wait for it and then refuse
+    to hand back the (now killed) stage instead of reporting success.
+    """
+    kill_calls: list[int] = []
+
+    class _RacingTimer:
+        # Stands in for a Timer whose callback has already passed the
+        # cancellation check when cancel() runs: it fires a moment later.
+        def __init__(self, interval, function):
+            self._function = function
+            self._thread: threading.Thread | None = None
+            self.daemon = False
+
+        def start(self) -> None:
+            pass
+
+        def cancel(self) -> None:
+            def _late_callback() -> None:
+                time.sleep(0.05)
+                self._function()
+
+            self._thread = threading.Thread(target=_late_callback)
+            self._thread.start()
+
+        def join(self, timeout=None) -> None:
+            if self._thread is not None:
+                self._thread.join(timeout)
+
+    monkeypatch.setattr(stage_init_deadline.threading, "Timer", _RacingTimer)
+    # READY arrives immediately.
+    monkeypatch.setattr(stage_init_deadline, "wait_for_engine_startup", lambda *args: None)
+
+    with pytest.raises(TimeoutError, match="stage_init_timeout"):
+        wait_for_engine_startup_with_deadline(
+            object(),
+            [],
+            _PARALLEL_CONFIG,
+            False,
+            None,
+            None,
+            timeout=60,
+            kill_processes=lambda: kill_calls.append(1),
+            stage_label="fake stage",
+        )
+    # The termination had completed before the function returned.
+    assert kill_calls == [1]
+
+
+def test_shutdown_cancels_initialization_before_joining_orchestrator():
+    """``OmniEngineBase.shutdown`` must cancel stage initialization before it
+    waits for the orchestrator thread, otherwise a stage that becomes READY
+    during that wait still launches the next one."""
+    from vllm_omni.engine.omni_engine_base import OmniEngineBase
+
+    class _Runtime:
+        def __init__(self) -> None:
+            self.cancelled = False
+            self.shutdown_calls = 0
+
+        def cancel_initialization(self) -> None:
+            self.cancelled = True
+
+        def shutdown(self) -> None:
+            self.shutdown_calls += 1
+
+    runtime = _Runtime()
+    cancelled_at_join: list[bool] = []
+
+    class _OrchestratorThread:
+        # Alive until joined, like an orchestrator that is still initializing.
+        def __init__(self) -> None:
+            self._alive = True
+
+        def is_alive(self) -> bool:
+            return self._alive
+
+        def join(self, timeout=None) -> None:
+            cancelled_at_join.append(runtime.cancelled)
+            self._alive = False
+
+    engine = types.SimpleNamespace(
+        _shutdown_called=False,
+        _weak_finalizer=None,
+        request_queue=None,
+        output_queue=None,
+        rpc_output_queue=None,
+        _correlated_rpc_client=None,
+        _runtime=runtime,
+        orchestrator_thread=_OrchestratorThread(),
+    )
+    engine.is_alive = lambda: engine.orchestrator_thread.is_alive()
+
+    OmniEngineBase.shutdown(engine)
+
+    assert cancelled_at_join == [True], "initialization must be cancelled before the orchestrator join"
+    assert runtime.shutdown_calls == 1
